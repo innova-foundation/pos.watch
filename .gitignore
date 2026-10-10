@@ -2,3 +2,6 @@
 deploy/.env
 .wrangler/
 .claude/
+
+# Local Netlify folder
+.netlify
