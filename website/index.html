@@ -1,93 +1,278 @@
 <!doctype html>
-
-<html lang="en">
+<html lang="en" data-skin="retro" data-mode="pos">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>[D] Staking Calculator | Denarius</title>
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:url" content="https://pos.watch">
-    <meta name="twitter:title" content="[D] Staking Calculator">
-    <meta name="twitter:description" content="Denarius Staking Calculator">
-    <meta name="twitter:image" content="https://i.imgur.com/lCvgFft.png?1">
+  <title>Innova Staking Calculator | pos.watch</title>
+  <meta name="description" content="Work out Innova (INN) staking rewards from the consensus rules in the wallet source: the 6% coin-year mint, the 65/35 collateral node split, and the post-IDAG finality-vote model.">
+  <meta name="theme-color" content="#040a12">
 
-  <link href="https://fonts.googleapis.com/css?family=Press+Start+2P" rel="stylesheet">
-  <!-- latest -->
-  <link href="https://unpkg.com/nes.css@latest/css/nes.min.css" rel="stylesheet" />
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://pos.watch">
+  <meta property="og:title" content="Innova Staking Calculator">
+  <meta property="og:description" content="Innova (INN) staking rewards, computed from the consensus rules in the wallet source.">
+  <meta property="og:image" content="https://pos.watch/img/innova-512.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:url" content="https://pos.watch">
+  <meta name="twitter:title" content="Innova Staking Calculator">
+  <meta name="twitter:description" content="Innova (INN) staking rewards, computed from the consensus rules in the wallet source.">
+  <meta name="twitter:image" content="https://pos.watch/img/innova-512.png">
+
+  <link rel="icon" href="img/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="img/innova-512.png">
+
+  <!-- Retro skin only. Kept disabled (but pre-parsed) until the retro skin is selected. -->
+  <link rel="stylesheet" href="vendor/nes.min.css" id="nes-css" disabled>
   <link rel="stylesheet" href="style/style.css">
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
-  
-  
+  <!-- The link above is enabled by JS. With JS off the retro skin is the
+       default and would render with no NES base, so load it unconditionally. -->
+  <noscript><link rel="stylesheet" href="vendor/nes.min.css"></noscript>
 
+  <script>
+    /* Apply the saved skin + mode before first paint so the page never flashes.
+     * A ?skin=/?mode= in the URL wins over localStorage, so a shared link lands
+     * on exactly what the sender saw. */
+    (function () {
+      var d = document.documentElement;
+      d.className += (d.className ? ' ' : '') + 'js';
+      try {
+        var q = new URLSearchParams(location.search);
+        var skin = q.get('skin') || localStorage.getItem('poswatch.skin');
+        var mode = q.get('mode') || localStorage.getItem('poswatch.mode');
+        if (skin === 'retro' || skin === 'modern') d.dataset.skin = skin;
+        if (mode === 'pos' || mode === 'idag' || mode === 'compare') d.dataset.mode = mode;
+        // The boot screen plays once per tab session, not on every reload.
+        if (sessionStorage.getItem('poswatch.booted')) d.className += ' booted';
+      } catch (e) { /* storage blocked or no URLSearchParams — defaults stand */ }
+      if (d.dataset.skin === 'retro') {
+        var l = document.getElementById('nes-css');
+        if (l) l.disabled = false;
+      }
+    })();
+  </script>
 </head>
 
 <body>
-  <div id="container" class="nes-container with-title is-dark">
-                <p class="title">pos.watch input form</p>
-        
-                <label for="name_field">Amount of Denarius <i class="nes-icon coin is-medium"></i>: </label>
-                <div class="nes-field">
-                  <input type="text" class="nes-input is-dark" placeholder="5000" id="denarius" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\.\d{8})\d+/g, '$1');" />
-                </div>
 
+<div id="boot" aria-hidden="true">
+  <div class="boot-inner">
+    <img class="boot-logo boot-logo-modern" src="img/innova-64.png" width="96" height="96" alt="">
+    <img class="boot-logo boot-logo-retro" src="img/innova-pixel.png" width="96" height="96" alt="">
+    <p class="boot-title">INNOVA</p>
+    <p class="boot-sub" id="boot-sub">booting node</p>
+    <div class="boot-bar"><span class="boot-fill" id="boot-fill"></span></div>
+    <p class="boot-pct" id="boot-pct">0%</p>
+  </div>
+</div>
 
-                
+<header class="topbar">
+  <a class="brand" href="https://innova-foundation.com/" rel="noopener">
+    <img class="brand-logo brand-logo-modern" src="img/innova-64.png" width="36" height="36" alt="Innova">
+    <img class="brand-logo brand-logo-retro" src="img/innova-pixel.png" width="36" height="36" alt="Innova">
+    <span class="brand-copy">pos<span class="brand-dot">.</span>watch</span>
+  </a>
 
-                <section id="submit">
-<button type="button" class="nes-btn is-primary">Stake</button>
+  <div class="topbar-controls">
+    <div class="seg" role="group" aria-label="Consensus mode">
+      <button type="button" class="seg-btn nes-btn" data-set-mode="pos"     aria-pressed="true">PoS</button>
+      <button type="button" class="seg-btn nes-btn" data-set-mode="idag"    aria-pressed="false">IDAG</button>
+      <button type="button" class="seg-btn nes-btn" data-set-mode="compare" aria-pressed="false">Compare</button>
+    </div>
+    <button type="button" id="skin-toggle" class="skin-btn nes-btn" title="Switch to the modern skin">
+      <span class="skin-btn-label">Modern</span>
+    </button>
+  </div>
+</header>
 
-                  </section>
-                  
-                  
-                  <div id="info" class="nes-container is-dark with-title is-centered">
-                      <p class="title">TeamPoS</p>
+<main class="wrap">
 
+  <noscript>
+    <div class="notice notice-warn">
+      <strong>This calculator needs JavaScript.</strong>
+      <span>The arithmetic runs entirely in your browser &mdash; there is no server to fall back on.
+      For reference, Innova mints 6% a year on coin-age, of which a collateral node takes 65%,
+      leaving the staker an effective 2.10%.</span>
+    </div>
+  </noscript>
 
+  <section class="hero">
+    <p class="eyebrow">Innova &middot; INN</p>
+    <h1 id="hero-title">Staking Calculator</h1>
+    <p class="lead" id="hero-lead"></p>
 
+    <div class="hero-stats" aria-label="Live network">
+      <div class="hstat"><span class="hstat-k">Height</span><span class="hstat-v" id="hs-height">&mdash;</span></div>
+      <div class="hstat"><span class="hstat-k">Supply</span><span class="hstat-v" id="hs-supply">&mdash;</span></div>
+      <div class="hstat"><span class="hstat-k">Nodes</span><span class="hstat-v" id="hs-nodes">&mdash;</span></div>
+      <div class="hstat"><span class="hstat-k">PoS mint</span><span class="hstat-v" id="hs-rate">&mdash;</span></div>
+      <div class="hstat hstat-live">
+        <span class="dot" id="net-dot" data-state="loading"></span>
+        <span class="hstat-k" id="net-status">loading&hellip;</span>
+      </div>
+    </div>
+  </section>
 
-                      <p><i class="nes-charmander"></i></a></p>
-                        <table class="nes-table is-bordered is-dark is-centered">
+  <!-- IDAG advisory ------------------------------------------------------ -->
+  <div class="notice notice-warn" id="idag-notice" hidden>
+    <strong><a href="https://innova-foundation.com/idag/" rel="noopener">IDAG</a>
+    is not active on mainnet.</strong>
+    <span>These figures model the finality-vote rules shipped in
+    <a href="https://github.com/innova-foundation/innova/releases" rel="noopener">v5.0.0.0</a>,
+    which the live chain is not yet enforcing. Use the PoS tab for what you earn today.</span>
+  </div>
+
+  <!-- Input -------------------------------------------------------------- -->
+  <section class="panel nes-container is-dark with-title" id="input-panel">
+    <p class="title">your stake</p>
+
+    <label class="field-label" for="amount">Amount of Innova <i class="nes-icon coin is-small"></i></label>
+    <div class="nes-field field-row">
+      <input type="text" inputmode="decimal" autocomplete="off" spellcheck="false"
+             class="nes-input is-dark" id="amount" value="25000" placeholder="25000" maxlength="18"
+             aria-describedby="amount-hint">
+      <span class="field-suffix">INN</span>
+    </div>
+    <p class="hint" id="amount-hint"></p>
+
+    <div class="presets" role="group" aria-label="Preset amounts">
+      <button type="button" class="chip nes-btn" data-preset="1000">1,000</button>
+      <button type="button" class="chip nes-btn" data-preset="10000">10,000</button>
+      <button type="button" class="chip nes-btn" data-preset="25000">25,000</button>
+      <button type="button" class="chip nes-btn" data-preset="100000">100,000</button>
+    </div>
+
+    <div class="opts">
+      <label class="opt">
+        <input type="checkbox" id="compound">
+        <span>Compound rewards<span class="opt-note"> &mdash; assumes daily restaking</span></span>
+      </label>
+      <button type="button" class="chip nes-btn" id="copy-link">Copy link</button>
+    </div>
+  </section>
+
+  <!-- Headline results --------------------------------------------------- -->
+  <section class="tiles" id="tiles" aria-label="Your staking rewards">
+    <div class="tile nes-container is-dark">
+      <p class="tile-label">Daily</p>
+      <p class="tile-value" id="out-daily">&mdash;</p>
+      <p class="tile-unit">INN</p>
+    </div>
+    <div class="tile nes-container is-dark">
+      <p class="tile-label">Monthly</p>
+      <p class="tile-value" id="out-monthly">&mdash;</p>
+      <p class="tile-unit">INN</p>
+    </div>
+    <div class="tile tile-hero nes-container is-dark">
+      <p class="tile-label">Yearly</p>
+      <p class="tile-value" id="out-yearly">&mdash;</p>
+      <p class="tile-unit">INN</p>
+    </div>
+    <div class="tile nes-container is-dark">
+      <p class="tile-label">Your effective rate</p>
+      <p class="tile-value" id="out-apr">&mdash;</p>
+      <p class="tile-unit" id="out-apr-note">net APR</p>
+    </div>
+  </section>
+
+  <!-- Compare ------------------------------------------------------------ -->
+  <section class="panel nes-container is-dark with-title" id="compare-panel" hidden>
+    <p class="title">today vs after IDAG</p>
+    <div class="compare" id="compare-grid"></div>
+    <p class="compare-verdict" id="compare-verdict"></p>
+    <p class="hint" id="compare-note"></p>
+  </section>
+
+  <!-- Breakdown ---------------------------------------------------------- -->
+  <section class="panel nes-container is-dark with-title" id="split-panel">
+    <p class="title" id="split-title">reward split</p>
+
+    <div class="table-scroll">
+      <table class="nes-table is-bordered is-dark is-centered data-table">
         <thead>
-                <tr>
-                        <th><h1>Heroes<span id="height"></span></h1></th>
-                        <th><h1>Percent</h1></th>
-                        <th><h1>Daily</h1></th>
-                        <th><h1>Monthly</h1></th>
-                        <th><h1>Yearly</h1></th>
-                </tr>
+          <tr>
+            <th>Who</th>
+            <th>Share</th>
+            <th>Daily</th>
+            <th>Monthly</th>
+            <th>Yearly</th>
+          </tr>
         </thead>
-        <tbody>
-                <tr>
-                        <td>Staker</td>
-                        <td>67%</td>
-                        <td><span id="stakingPayDaily"></span></td>
-                        <td><span id="stakingPayMonthly"></span></td>
-                      <td><span id="stakingPay"></span></td>
-                </tr>
-                <tr>
-                        <td>FortunaStake</td>
-                        <td>33%</td>
-                        <td><span id="fortunastakePayDaily"></span></td>
-                        <td><span id="fortunastakePayMonthly"></span></td>
-                        <td><span id="fortunastakePay"></span></td>
-                </tr>
-                <tr>
-                        <td>Total (6% APR)</td>
-                        <td>100%</td>
-                        <td><span id="totalPayDaily"></span></td>
-                        <td><span id="totalPayMonthly"></span></td>
-                        <td><span id="totalPayYearly"></span></td>
-                </tr>
-                
-        </tbody>
-</table>
-                  
-                  
-        </div>
-        
-        <i class="nes-icon is-large heart"></i> <i class="nes-icon twitter is-large"></i> <i class="nes-icon github is-large"></i> <i class="nes-icon reddit is-large"></i>
+        <tbody id="split-body"></tbody>
+      </table>
+    </div>
 
-  <script type="text/javascript" src="js/script.js?version=0.01337"></script>
-  <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js'></script>
+    <p class="hint" id="split-note"></p>
+  </section>
+
+  <!-- IDAG mechanics ----------------------------------------------------- -->
+  <section class="panel nes-container is-dark with-title" id="epoch-panel" hidden>
+    <p class="title">finality vote, per epoch</p>
+    <dl class="kv" id="epoch-kv"></dl>
+    <p class="hint" id="epoch-note"></p>
+  </section>
+
+  <!-- Collateral node ---------------------------------------------------- -->
+  <section class="panel nes-container is-dark with-title" id="node-panel">
+    <p class="title">collateral node &mdash; estimate</p>
+    <div class="notice notice-info">
+      <strong>A derivation, not a published rate.</strong>
+      <span>Innova publishes no collateral node yield. This is computed from the live node count
+      and the block subsidy, and it moves <em>inversely</em> with how many nodes run &mdash; if the
+      count doubles, your share halves. Setup guide:
+      <a href="https://innova-foundation.com/operators/" rel="noopener">Collateral Nodes</a>.</span>
+    </div>
+    <dl class="kv" id="node-kv"></dl>
+    <p class="hint" id="node-note"></p>
+  </section>
+
+  <!-- Rules -------------------------------------------------------------- -->
+  <section class="panel nes-container is-dark with-title" id="rules-panel">
+    <p class="title">consensus rules used</p>
+    <dl class="kv" id="rules-kv"></dl>
+    <p class="hint" id="rules-note"></p>
+  </section>
+
+  <!-- Network ------------------------------------------------------------ -->
+  <section class="panel nes-container is-dark with-title" id="net-panel">
+    <p class="title">network</p>
+    <dl class="kv" id="net-kv"></dl>
+  </section>
+
+  <!-- Caveats ------------------------------------------------------------ -->
+  <section class="panel nes-container is-dark with-title" id="caveat-panel">
+    <p class="title">what these numbers assume</p>
+    <ul class="caveats" id="caveats"></ul>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <img class="foot-sprite" src="img/innova-pixel.png" width="72" height="72" alt="">
+  <nav class="foot-links">
+    <a href="https://innova-foundation.com/" rel="noopener">Website</a>
+    <a href="https://innova-foundation.com/docs/" rel="noopener">Docs</a>
+    <a href="https://innova-foundation.com/downloads/" rel="noopener">Wallet</a>
+    <a href="https://chainz.cryptoid.info/inn/" rel="noopener">Explorer</a>
+    <a href="https://github.com/innova-foundation/pos.watch" rel="noopener">Source</a>
+    <a href="https://discord.gg/mNM59znzNG" rel="noopener">Discord</a>
+    <a href="https://t.me/innova_foundation" rel="noopener">Telegram</a>
+    <a href="https://x.com/Innova_Fdn" rel="noopener">X</a>
+  </nav>
+  <p class="foot-note">
+    Not financial advice. Every rate here is read out of the
+    <a href="https://github.com/innova-foundation/innova" rel="noopener">Innova wallet source</a>,
+    not from marketing copy &mdash; see the rules panel for the exact constants.
+  </p>
+  <p class="foot-note">
+    Live network stats load straight from chainz.cryptoid.info and CoinGecko, so those two
+    services see your IP address. Nothing else leaves your browser.
+  </p>
+  <p class="foot-note foot-dim">pos.watch</p>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="script/script.js"></script>
 </body>
 </html>

@@ -1,0 +1,31 @@
+# pos.watch on the Dell: nginx origin + Cloudflare Tunnel, zero inbound ports.
+#
+#   cd deploy && cp .env.example .env   # paste the tunnel token
+#   docker compose up -d --build
+#
+# Tunnel setup (laptop, once):
+#   cloudflared tunnel login
+#   cloudflared tunnel create pos-watch
+#   cloudflared tunnel route dns pos-watch pos.watch
+#   cloudflared tunnel token pos-watch        # -> TUNNEL_TOKEN in .env
+#
+# Published hostname in the tunnel config must point at http://web:8080 —
+# that is the compose service name, not 127.0.0.1.
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    # Bound to loopback only — even if the tunnel is down, nothing outside
+    # this machine can reach the origin.
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.1
+    command: tunnel --no-autoupdate run --token "${TUNNEL_TOKEN}"
+    restart: unless-stopped
+    depends_on:
+      - web

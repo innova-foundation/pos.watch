@@ -1,0 +1,42 @@
+# pos.watch — Tor v3 onion service
+#
+# Review before use. Paths assume Debian/Ubuntu (user `debian-tor`); on other
+# distros adjust HiddenServiceDir and the socket path to match your tor user.
+#
+#   sudo install -d -m 700 -o debian-tor -g debian-tor /var/lib/tor/pos-watch
+#   sudo systemctl restart tor@default
+#   sudo cat /var/lib/tor/pos-watch/hostname
+#
+# BACK UP /var/lib/tor/pos-watch/hs_ed25519_secret_key offline and encrypted
+# before publishing the address. Lose it and the address is unrecoverable;
+# leak it and anyone can impersonate the site.
+
+# This box only serves a hidden service — it is not a client, so no SOCKS port.
+SocksPort 0
+
+# Never log IPs or onion addresses.
+SafeLogging 1
+Log notice file /var/log/tor/notices.log
+
+HiddenServiceDir /var/lib/tor/pos-watch/
+HiddenServiceVersion 3
+
+# Unix socket rather than 127.0.0.1:PORT — nothing is exposed on any interface,
+# so the web server cannot be reached except through Tor.
+HiddenServicePort 80 unix:/var/run/tor/pos-watch.sock
+
+# Introduction-point DoS defences. Cheap, and a static site has no reason to
+# accept a flood.
+HiddenServiceEnableIntroDoSDefense 1
+HiddenServiceEnableIntroDoSRatePerSec 25
+HiddenServiceEnableIntroDoSBurstPerSec 200
+
+# Proof-of-work defence. Only uncomment if `tor --list-modules` reports
+# `pow: yes` — Homebrew builds tor without it, Debian's package includes it.
+#HiddenServicePoWDefensesEnabled 1
+
+# DO NOT enable either of these. One-hop circuits make the server locatable,
+# and a HiddenServiceDir once used in that mode can never serve a normal
+# anonymous onion again.
+#HiddenServiceSingleHopMode 1
+#HiddenServiceNonAnonymousMode 1

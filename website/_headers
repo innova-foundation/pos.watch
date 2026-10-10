@@ -1,0 +1,28 @@
+# Response headers for Cloudflare Pages. Inert on any other host, and harmless
+# if it ends up inside the IPFS CID.
+#
+# img-src needs data: — nes.min.css draws its borders and icons from 21 inline
+# data:image/svg+xml backgrounds plus a few base64 PNGs. Without it the retro
+# skin loses them silently.
+#
+# script-src allows the pre-paint skin script in <head> by its sha256 hash.
+# ANY edit to that script (even whitespace) changes the hash and the browser
+# silently blocks it. Recompute, and update deploy/nginx*.conf to match:
+#   python3 -c "import re,hashlib,base64;s=re.search(r'<script>(.*?)</script>',open('website/index.html').read(),re.S).group(1);print(base64.b64encode(hashlib.sha256(s.encode()).digest()).decode())"
+# Note that el.style.width (the boot bar) is CSSOM, not a markup style
+# attribute, so it is not subject to style-src.
+#
+# connect-src is exactly the two endpoints script.js calls. On an onion the page
+# makes no outbound calls at all — see deploy/nginx-onion.conf, which forbids
+# them outright.
+
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'self'; font-src 'self'; script-src 'self' 'sha256-4SiywVZunJQ1u8KXkC1NFHDmvwr5htJCtttiiP6SBb0='; connect-src https://chainz.cryptoid.info https://api.coingecko.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+
+# Uncomment once the onion exists, and put the real address in. Tor Browser will
+# then offer the onion automatically to anyone visiting over HTTPS.
+#  Onion-Location: http://<your-onion>.onion/
